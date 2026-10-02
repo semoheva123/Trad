@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>فورتكس | Vortex — تداول بدقة واحتراف</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Cairo:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root { --gold:#c9a45c; --green:#2fd57a; --red:#e0455a; --bg:#070708; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    background:var(--bg); color:#ece9e4;
+    font-family:'Tajawal',sans-serif;
+    overflow-x:hidden; cursor:none;
+  }
+  h1,h2,h3,.display { font-family:'Cairo',sans-serif; }
+  ::selection { background:var(--gold); color:#000; }
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-track { background:#0d0d0f; }
+  ::-webkit-scrollbar-thumb { background:var(--gold); border-radius:99px; }
+
+  /* ====== المؤشر المخصص ====== */
+  #cursor { position:fixed; width:14px; height:14px; background:var(--gold); border-radius:50%;
+    pointer-events:none; z-index:9999; transform:translate(-50%,-50%); mix-blend-mode:difference; transition:transform .15s; }
+  #cursorRing { position:fixed; width:44px; height:44px; border:1px solid rgba(201,164,92,.5); border-radius:50%;
+    pointer-events:none; z-index:9998; transform:translate(-50%,-50%); }
+  @media (hover:none) { #cursor,#cursorRing{display:none} body{cursor:auto} }
+
+  /* ====== شاشة التحميل ====== */
+  #loader { position:fixed; inset:0; background:var(--bg); z-index:10000;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px; }
+  #loader .logo { font-family:'Cairo'; font-size:2.2rem; font-weight:900; letter-spacing:.3em; }
+  #loaderBar { width:220px; height:2px; background:rgba(255,255,255,.1); overflow:hidden; border-radius:99px; }
+  #loaderBar span { display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--gold),#fff); }
+  #loadPct { font-size:.8rem; color:var(--gold); letter-spacing:.2em; }
+
+  /* ====== الخلفية 3D ====== */
+  #bg3d { position:fixed; inset:0; z-index:0; }
+  .vignette { position:fixed; inset:0; z-index:1; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 45%, transparent 0%, rgba(7,7,8,.7) 72%, var(--bg) 100%); }
+
+  /* ====== شريط التقدم ====== */
+  #progress { position:fixed; top:0; right:0; height:3px; width:0%; z-index:100;
+    background:linear-gradient(90deg,var(--green),var(--gold)); }
+
+  .glass { background:rgba(255,255,255,.028); backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,.07); }
+  .gold { color:var(--gold); }
+  .grad-text { background:linear-gradient(120deg,#f5e6c8,var(--gold) 55%,#8a6d33);
+    -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+  .btn-gold { background:linear-gradient(120deg,#e2c489,var(--gold)); color:#0a0a0a;
+    transition:.35s cubic-bezier(.22,1,.36,1); position:relative; overflow:hidden; }
+  .btn-gold:hover { transform:translateY(-3px) scale(1.03); box-shadow:0 15px 45px rgba(201,164,92,.35); }
+  .btn-ghost { border:1px solid rgba(255,255,255,.15); transition:.35s; }
+  .btn-ghost:hover { background:rgba(255,255,255,.06); transform:translateY(-3px); }
+
+  .card { transition:.5s cubic-bezier(.22,1,.36,1); position:relative; overflow:hidden; }
+  .card::before { content:''; position:absolute; inset:0;
+    background:radial-gradient(400px circle at var(--mx,50%) var(--my,50%), rgba(201,164,92,.12), transparent 45%);
+    opacity:0; transition:.4s; pointer-events:none; }
+  .card:hover::before { opacity:1; }
+  .card:hover { transform:translateY(-10px); border-color:rgba(201,164,92,.45); }
+
+  /* شريط الأسعار */
+  .ticker-wrap { overflow:hidden; direction:ltr; }
+  .ticker { display:flex; gap:56px; white-space:nowrap; animation:tick 35s linear infinite; direction:ltr; }
+  @keyframes tick { to { transform:translateX(-50%); } }
+
+  .reveal { opacity:0; transform:translateY(60px); }
+
+  /* نبض للنقطة الحية */
+  .pulse-dot { position:relative; width:8px; height:8px; background:var(--green); border-radius:50%; }
+  .pulse-dot::after { content:''; position:absolute; inset:-6px; border-radius:50%;
+    border:1px solid var(--green); animation:pulse 1.6s ease-out infinite; }
+  @keyframes pulse { 0%{transform:scale(.5);opacity:1} 100%{transform:scale(1.8);opacity:0} }
+
+  /* شارة العملات العائمة */
+  .float-badge { animation:floaty 5s ease-in-out infinite; }
+  @keyframes floaty { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
+
+  .num { font-family:'Cairo'; font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+
+<!-- المؤشر -->
+<div id="cursorRing"></div>
+<div id="cursor"></div>
+
+<!-- شاشة التحميل -->
+<div id="loader">
+  <div class="logo">◆ <span class="gold">فورتكس</span></div>
+  <div id="loaderBar"><span></span></div>
+  <div id="loadPct">0%</div>
+</div>
+
+<!-- شريط تقدم القراءة -->
+<div id="progress"></div>
+
+<!-- خلفية 3D -->
+<canvas id="bg3d"></canvas>
+<div class="vignette"></div>
+
+<!-- ======= القائمة ======= -->
+<nav class="fixed top-0 w-full z-50 glass" style="border-left:0;border-right:0;border-top:0;">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center display font-black text-black" style="background:linear-gradient(135deg,#e8ce9b,var(--gold))">◆</div>
+      <div>
+        <div class="display font-black text-lg leading-none">فورتكس</div>
+        <div class="text-[10px] text-gray-500 tracking-[.35em]">VERTEX CAPITAL</div>
+      </div>
+    </div>
+    <div class="hidden md:flex gap-9 text-sm text-gray-400">
+      <a href="#markets" class="hover:text-white transition nav-link">الأسواق</a>
+      <a href="#stats" class="hover:text-white transition nav-link">الأداء</a>
+      <a href="#strategies" class="hover:text-white transition nav-link">الاستراتيجيات</a>
+      <a href="#about" class="hover:text-white transition nav-link">الفلسفة</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="hidden sm:flex items-center gap-2 text-xs text-gray-400">
+        <span class="pulse-dot"></span> الأسواق مفتوحة
+      </div>
+      <a href="#cta" class="btn-gold font-bold text-sm px-6 py-2.5 rounded-full">ابدأ الآن</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ======= الواجهة الرئيسية ======= -->
+<header class="relative z-10 min-h-screen flex items-center px-6">
+  <div class="max-w-7xl mx-auto w-full pt-28">
+    <div class="reveal flex items-center gap-3 mb-8">
+      <span class="h-px w-14" style="background:var(--gold)"></span>
+      <span class="text-xs tracking-[.45em] text-gray-500">تجربة تداول مؤسسية فاخرة</span>
+    </div>
+
+    <h1 class="reveal display font-black leading-[1.05]" style="font-size:clamp(2.8rem,8.5vw,7rem)">
+      دقّة.<br>
+      <span class="grad-text">استراتيجية.</span><br>
+      أرباح.
+    </h1>
+
+    <p class="reveal mt-8 max-w-lg text-gray-400 font-light leading-loose text-lg">
+      تحليل خوارزمي للأسواق، إشارات لحظية، وتنفيذ بسرعة البرق — منصة صُممت للمتداول الذي يرفض أن يكون رقمًا عابرًا في السوق.
+    </p>
+
+    <div class="reveal mt-10 flex flex-wrap gap-4">
+      <a href="#cta" class="btn-gold font-bold px-9 py-4 rounded-full text-lg">افتح حسابك الحقيقي</a>
+      <a href="#markets" class="btn-ghost px-9 py-4 rounded-full text-lg text-gray-300">استكشف الأسواق ←</a>
+    </div>
+
+    <div class="reveal mt-16 grid grid-cols-3 gap-6 max-w-lg">
+      <div class="glass rounded-2xl p-5 text-center">
+        <div class="num text-3xl font-black" style="color:var(--green)"><span data-count="240">0</span>+</div>
+        <div class="text-gray-500 text-sm mt-1">أداة مالية</div>
+      </div>
+      <div class="glass rounded-2xl p-5 text-center">
+        <div class="num text-3xl font-black" style="color:var(--green)"><span data-count="98">0</span>%</div>
+        <div class="text-gray-500 text-sm mt-1">معدل التنفيذ</div>
+      </div>
+      <div class="glass rounded-2xl p-5 text-center">
+        <div class="num text-3xl font-black" style="color:var(--green)"><span data-count="30">0</span>ms</div>
+        <div class="text-gray-500 text-sm mt-1">سرعة التنفيذ</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- شريط الأسعار الحية -->
+<div class="relative z-10 py-4 border-y border-white/5" style="background:rgba(0,0,0,.45)">
+  <div class="ticker-wrap">
+    <div class="ticker text-sm text-gray-400" id="ticker"></div>
+  </div>
+</div>
+
+<!-- ======= الأسواق ======= -->
+<section id="markets" class="relative z-10 py-32 px-6">
+  <div class="max-w-7xl mx-auto">
+    <div class="reveal flex items-center gap-3 mb-4">
+      <span class="text-xs tracking-[.45em] gold">٠١ — الأسواق</span>
+    </div>
+    <h2 class="reveal display font-black text-4xl md:text-6xl mb-16 leading-tight">
+      تداول كل شيء.<br><span class="text-gray-600">وأتقن واحدًا.</span>
+    </h2>
+
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="reveal card glass rounded-3xl p-9">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-6 float-badge" style="background:rgba(47,213,122,.1)">📊</div>
+        <h3 class="display text-2xl font-bold mb-4">الفوركس</h3>
+        <p class="text-gray-400 font-light leading-relaxed">أزواج رئيسية وثانوية ونادرة مع فروقات تبدأ من ٠.٠ نقطة وسيولة عميقة على مدار الساعة.</p>
+        <div class="mt-8 gold font-medium flex items-center gap-2">٥٨ زوجًا <span>←</span></div>
+      </div>
+
+      <div class="reveal card glass rounded-3xl p-9" style="border-color:rgba(201,164,92,.25); box-shadow:0 0 70px rgba(201,164,92,.08);">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-6 float-badge" style="background:rgba(201,164,92,.12)">₿</div>
+        <h3 class="display text-2xl font-bold mb-4">العملات الرقمية</h3>
+        <p class="text-gray-400 font-light leading-relaxed">بيتكوين، إيثيريوم وأكثر من ٤٠ أصلًا رقميًا — تداول على مدار الساعة مع حفظ مؤسسي آمن.</p>
+        <div class="mt-8 gold font-medium flex items-center gap-2">أسواق ٢٤/٧ <span>←</span></div>
+      </div>
+
+      <div class="reveal card glass rounded-3xl p-9">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-6 float-badge" style="background:rgba(224,69,90,.1)">🥇</div>
+        <h3 class="display text-2xl font-bold mb-4">السلع والمؤشرات</h3>
+        <p class="text-gray-400 font-light leading-relaxed">الذهب، النفط والمؤشرات العالمية مع تنفيذ دقيق وبلا إعادة تسعير على العقود القياسية.</p>
+        <div class="mt-8 gold font-medium flex items-center gap-2">ملاذات آمنة <span>←</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======= الأداء ======= -->
+<section id="stats" class="relative z-10 py-32 px-6" style="background:rgba(0,0,0,.4); border-top:1px solid rgba(255,255,255,.05); border-bottom:1px solid rgba(255,255,255,.05);">
+  <div class="max-w-5xl mx-auto text-center">
+    <div class="reveal text-xs tracking-[.45em] gold mb-4">٠٢ — الأداء</div>
+    <h2 class="reveal display font-black text-4xl md:text-5xl mb-20">الأرقام لا تتفاوض.</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-12">
+      <div class="reveal"><div class="num text-5xl font-black gold"><span data-count="85">0</span>K+</div><div class="text-gray-500 mt-3">متداول نشط</div></div>
+      <div class="reveal"><div class="num text-5xl font-black gold"><span data-count="14">0</span>B$</div><div class="text-gray-500 mt-3">حجم سنوي</div></div>
+      <div class="reveal"><div class="num text-5xl font-black gold"><span data-count="160">0</span>+</div><div class="text-gray-500 mt-3">دولة نخدمها</div></div>
+      <div class="reveal"><div class="num text-5xl font-black gold"><span data-count="12">0</span></div><div class="text-gray-500 mt-3">عامًا من الخبرة</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======= الاستراتيجيات ======= -->
+<section id="strategies" class="relative z-10 py-32 px-6">
+  <div class="max-w-7xl mx-auto">
+    <div class="reveal text-xs tracking-[.45em] gold mb-4">٠٣ — الاستراتيجيات</div>
+    <h2 class="reveal display font-black text-4xl md:text-6xl mb-16">نظام واحد. <span class="grad-text">ثلاث ركائز.</span></h2>
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="reveal card glass rounded-3xl p-9">
+        <div class="num text-5xl font-black mb-5" style="color:rgba(201,164,92,.25)">01</div>
+        <h3 class="display text-xl font-bold mb-4">التحليل الخوارزمي</h3>
+        <p class="text-gray-400 font-light leading-relaxed text-sm">نماذج تعلم آلي تفحص ملايين نقاط البيانات لاكتشاف الزخم قبل أن يراه السوق.</p>
+      </div>
+      <div class="reveal card glass rounded-3xl p-9">
+        <div class="num text-5xl font-black mb-5" style="color:rgba(201,164,92,.25)">02</div>
+        <h3 class="display text-xl font-bold mb-4">هندسة المخاطر</h3>
+        <p class="text-gray-400 font-light leading-relaxed text-sm">إدارة رأس مال صارمة تحمي محفظتك أولًا — لأن البقاء في اللعبة أهم من أي صفقة.</p>
+      </div>
+      <div class="reveal card glass rounded-3xl p-9">
+        <div class="num text-5xl font-black mb-5" style="color:rgba(201,164,92,.25)">03</div>
+        <h3 class="display text-xl font-bold mb-4">علم النفس السوقي</h3>
+        <p class="text-gray-400 font-light leading-relaxed text-sm">قراءة المشاعر الجماعية للسوق وتحويل الذعر والطمع لصالحك.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======= الفلسفة ======= -->
+<section id="about" class="relative z-10 py-32 px-6">
+  <div class="max-w-4xl mx-auto">
+    <div class="reveal text-xs tracking-[.45em] gold mb-4">٠٤ — الفلسفة</div>
+    <h2 class="reveal display font-black text-4xl md:text-6xl leading-tight mb-10">
+      التداول ليس مقامرة.<br><span class="grad-text">إنه حرب محسوبة.</span>
+    </h2>
+    <p class="reveal text-gray-400 font-light text-lg leading-loose">
+      نمزج التحليل الخوارزمي وهندسة المخاطر وعلم نفس السوق في منظومة واحدة منضبطة. لا وعود وهمية، لا ضجيج — فقط بنية وبيانات وتنفيذ. مكتبنا يعمل بنفس الصرامة سواء نزفت السوق أو ارتفعت.
+    </p>
+  </div>
+</section>
+
+<!-- ======= دعوة ختامية ======= -->
+<section id="cta" class="relative z-10 py-32 px-6 text-center">
+  <div class="reveal max-w-3xl mx-auto glass rounded-[2.5rem] p-14" style="box-shadow:0 0 80px rgba(201,164,92,.1);">
+    <h2 class="display font-black text-4xl md:text-5xl mb-6 leading-tight">ميزتك تبدأ<br>بقرار واحد.</h2>
+    <p class="text-gray-400 mb-10 font-light text-lg">حساب تجريبي مجاني. بدون بطاقة ائتمان. رأس مال افتراضي ١٠٠,٠٠٠$.</p>
+    <a href="#" class="btn-gold font-bold px-12 py-4 rounded-full text-lg inline-block">أنشئ حسابك المجاني</a>
+  </div>
+  <p class="text-gray-600 text-sm mt-12 max-w-2xl mx-auto leading-relaxed">
+    تحذير المخاطر: يتضمن تداول الفوركس والعقود مقابل الفروقات والعملات الرقمية مخاطر خسارة كبيرة وقد لا يناسب جميع المستثمرين. الأداء السابق لا يضمن النتائج المستقبلية.
+  </p>
+</section>
+
+<!-- ======= التذييل ======= -->
+<footer class="relative z-10 py-12 border-t border-white/5">
+  <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center display font-black text-black text-sm" style="background:linear-gradient(135deg,#e8ce9b,var(--gold))">◆</div>
+      <span class="display font-bold">فورتكس</span>
+    </div>
+    <div class="text-gray-500 text-sm">© ٢٠٢٦ فورتكس كابيتال. جميع الحقوق محفوظة.</div>
+    <div class="glass rounded-full px-6 py-2.5 text-sm">
+      <span class="text-gray-500">تطوير المبرمج </span>
+      <span class="gold font-bold tracking-widest">siyamend</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ================= المؤشر المخصص ================= */
+const cur = document.getElementById('cursor'), ring = document.getElementById('cursorRing');
+let cx=0, cy=0, rx=0, ry=0;
+addEventListener('mousemove', e => { cx=e.clientX; cy=e.clientY;
+  cur.style.left=cx+'px'; cur.style.top=cy+'px'; });
+(function ringLoop(){ rx+=(cx-rx)*.14; ry+=(cy-ry)*.14;
+  ring.style.left=rx+'px'; ring.style.top=ry+'px'; requestAnimationFrame(ringLoop); })();
+
+/* ================= شاشة التحميل ================= */
+const bar = document.querySelector('#loaderBar span'), pct = document.getElementById('loadPct');
+let p = 0;
+const loadInt = setInterval(() => {
+  p += Math.random()*22;
+  if (p >= 100) { p = 100; clearInterval(loadInt);
+    gsap.to('#loader', { opacity:0, duration:.8, delay:.3, onComplete:()=>loader.remove() });
+    gsap.to('header .reveal', { opacity:1, y:0, stagger:.12, duration:1.1, ease:'power3.out', delay:.4, clearProps:'transform' });
+  }
+  bar.style.width = p+'%'; pct.textContent = Math.floor(p)+'%';
+}, 180);
+
+/* ================= المشهد 3D ================= */
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x070708, 9, 24);
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, .1, 100);
+camera.position.set(0, 2.4, 9);
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bg3d'), antialias:true, alpha:true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+scene.add(new THREE.AmbientLight(0xffffff, .32));
+const keyL = new THREE.PointLight(0xc9a45c, 2.2, 28); keyL.position.set(6, 7, 5); scene.add(keyL);
+const greenL = new THREE.PointLight(0x2fd57a, 1.1, 22); greenL.position.set(-7, 3, -3); scene.add(greenL);
+const redL = new THREE.PointLight(0xe0455a, .8, 20); redL.position.set(3, 1, -6); scene.add(redL);
+
+/* الشموع اليابانية */
+const chart = new THREE.Group();
+let price = 0;
+const candles = [];
+for (let i = 0; i < 46; i++) {
+  const open = price, ch = (Math.sin(i*.6)*.35) + (Math.random()-.48)*.7;
+  price += ch;
+  const bull = ch >= 0, col = bull ? 0x2fd57a : 0xe0455a;
+  const h = Math.abs(ch) + .3;
+  const mat = new THREE.MeshStandardMaterial({ color: col, transparent:true, opacity:.88 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(.42, h, .42), mat);
+  body.position.set((i - 23) * .72, (open+price)/2, 0);
+  const wick = new THREE.Mesh(new THREE.BoxGeometry(.05, h+.55, .05),
+    new THREE.MeshStandardMaterial({ color: 0x666666 }));
+  wick.position.copy(body.position);
+  chart.add(body, wick);
+  candles.push({ body, wick, baseY: body.position.y, i });
+}
+
+/* خط الاتجاه الذهبي */
+const linePts = candles.map(c => new THREE.Vector3(c.body.position.x, c.body.position.y, .3));
+const trend = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(linePts),
+  new THREE.LineBasicMaterial({ color: 0xc9a45c, transparent:true, opacity:.7 })
+);
+chart.add(trend);
+
+/* جزيئات ذهبية عائمة */
+const pGeo = new THREE.BufferGeometry();
+const pCount = 260, pos = new Float32Array(pCount*3);
+for (let i=0;i<pCount*3;i++) pos[i] = (Math.random()-.5)*30;
+pGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+const particles = new THREE.Points(pGeo, new THREE.PointsMaterial({ color:0xc9a45c, size:.045, transparent:true, opacity:.6 }));
+scene.add(particles);
+
+const grid = new THREE.GridHelper(50, 50, 0x1c1c1f, 0x121214);
+grid.position.y = -2.8;
+scene.add(grid);
+
+chart.position.set(-1.4, -.4, 0);
+scene.add(chart);
+
+let mx=0, my=0;
+addEventListener('mousemove', e => {
+  mx = e.clientX/innerWidth - .5;
+  my = e.clientY/innerHeight - .5;
+});
+
+const clock = new THREE.Clock();
+(function animate(){
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  chart.rotation.y += ((mx*.55 + Math.sin(t*.14)*.28) - chart.rotation.y)*.04;
+  candles.forEach(c => {
+    const w = Math.sin(t*1.4 + c.i*.45)*.06;
+    c.body.position.y = c.baseY + w;
+    c.wick.position.y = c.baseY + w;
+  });
+  particles.rotation.y = t*.02;
+  camera.position.x += (mx*1.6 - camera.position.x)*.03;
+  camera.position.y += (2.4 - my*1.3 - camera.position.y)*.03;
+  camera.lookAt(0, 0, 0);
+  renderer.render(scene, camera);
+})();
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ================= شريط الأسعار ================= */
+const symbols = [
+  ['BTC/USD', 67420, 1], ['ETH/USD', 3540, 1], ['XAU/USD', 2412, 1],
+  ['EUR/USD', 1.0842, 4], ['SPX500', 5280, 0], ['US30', 39120, 0], ['GBP/JPY', 192.44, 2]
+];
+const tickEl = document.getElementById('ticker');
+function buildTicker(){
+  const html = symbols.map(([s,v,d]) => {
+    const up = Math.random() > .42;
+    const nv = v * (1 + (Math.random()-.5)*.004);
+    return `<span class="flex items-center gap-2" style="direction:ltr">
+      <b class="text-gray-200">${s}</b>
+      <span class="num ${up?'':'text-red-400'}" style="${up?'color:var(--green)':''}">${nv.toFixed(d)} ${up?'▲':'▼'}</span>
+    </span>`;
+  }).join('');
+  tickEl.innerHTML = html + html;
+}
+buildTicker(); setInterval(buildTicker, 4000);
+
+/* ================= حركات التمرير ================= */
+gsap.registerPlugin(ScrollTrigger);
+document.querySelectorAll('section .reveal, footer .reveal').forEach(el => {
+  gsap.to(el, { opacity:1, y:0, duration:1.1, ease:'power3.out',
+    scrollTrigger:{ trigger:el, start:'top 88%' } });
+});
+document.querySelectorAll('[data-count]').forEach(el => {
+  const end = +el.dataset.count;
+  ScrollTrigger.create({ trigger:el, start:'top 90%', once:true,
+    onEnter:() => gsap.fromTo(el, { innerText:0 }, {
+      innerText:end, duration:2.2, snap:{ innerText:1 }, ease:'power2.out'
+    })
+  });
+});
+
+/* شريط تقدم القراءة */
+addEventListener('scroll', () => {
+  const h = document.documentElement;
+  document.getElementById('progress').style.width =
+    (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%';
+});
+
+/* توهج البطاقات مع الماوس */
+document.querySelectorAll('.card').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const r = card.getBoundingClientRect();
+    card.style.setProperty('--mx', (e.clientX - r.left)+'px');
+    card.style.setProperty('--my', (e.clientY - r.top)+'px');
+  });
+});
+</script>
+</body>
+</html>
